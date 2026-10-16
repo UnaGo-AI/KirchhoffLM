@@ -8,3 +8,4 @@ tokenizers
 huggingface_hub
 pyarrow
 transformers
+pytest

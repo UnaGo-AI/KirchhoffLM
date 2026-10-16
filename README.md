@@ -20,16 +20,32 @@ step-by-step *Signal journey* that follows one word through the chips.
 | | |
 |---|---|
 | Translation to component values (8-bit capacitor counts) | lossless: 0.7398 vs 0.7403 bits/byte |
-| Quality on emulated chips | **+2.2 – 2.5 %** bits/byte vs the original |
-| Long context (~980 tokens) | 20 / 20 recall of a hidden fact, the same as the exact model |
-| Emulated speed / energy | ~37,000 tokens/s per user, ~5–15 µJ per token (estimates) |
+| Quality on emulated chips | **+2.3 – 3.0 %** bits/byte vs the original (3 chips) |
+| Long context (~980 tokens) | 20 / 20 recall of a hidden fact, the same as the exact model; +3.0–3.6 % at every position |
+| Emulated speed / energy | ~37,000 tokens/s per user, ~16 µJ per token at 2k context (estimates) |
 | Hardware | 747M capacitors, 648k read-out amplifiers, ~8,000 mm² over 25 chips |
 
 Other findings:
-- AC capacitor grids are far more robust than DC resistor grids, which suffer from wire voltage drop. This was checked
-  with exact circuit solves of real tiles.
+- AC capacitor grids are more robust than DC resistor grids: the whole chain loses +5.9 % vs +10.1 % with 8-bit links.
+  DC grids also suffer from wire voltage drop, which was checked with exact circuit solves of real tiles.
 - An analog DeltaNet memory fails, because thermal noise piles up on every write, so the memory stays digital.
-- With trimming, the remaining loss comes from converters and multipliers, not from the capacitor grids.
+  Its converters need **per-head ADC ranges (10 bits)** into the memory and **12-bit DACs** out of it.
+  With one range per layer, 10-bit ADCs cost +51 %.
+- 10-bit chip-to-chip links cost about 3 points less than 8-bit links.
+
+## Corrections
+
+On 2026-10-16 an external review found four issues:
+1. The converters around the digital memory were not simulated.
+2. Capacitor mismatch did not follow Pelgrom's law for small capacitors (16× too small for a single unit capacitor).
+3. The design search crashed for capacitor grids.
+4. The numerical checks did not assert.
+
+Fixing them exposed two more:
+- the calibration took signal peaks from a random subsample, so rails clipped real peaks;
+- one ADC range per layer rounded quiet heads away.
+
+All six are fixed, each has a regression test (`emulator/tests`), and every published number was re-measured.
 
 ## Design in one picture
 
@@ -52,6 +68,7 @@ token → embedding → [chip L0] → [chip L1] → … → [chip L23] → outpu
 | `emulator/chat_server.py` | Gradio chat UI with a live processing log, the Signal journey and the documentation pages |
 | `emulator/run.py`, `layer_bench.py`, `ac_dc.py`, … | experiments: sweeps, design search, per-layer chips, AC vs DC |
 | `emulator/tiny_hw.py` | TinyStories model with hardware-parameter training (exploratory) |
+| `emulator/tests/` | regression tests: kernel, Pelgrom mismatch, sampler, converters, calibration, model equivalence |
 | `emulator/runs/` | result files used by the website |
 | `docs/` | the GitHub Pages site (built by `emulator/build_site.py`) |
 
@@ -63,8 +80,9 @@ pip install -r requirements.txt
 python make_eval_texts.py                         # held-out Wikipedia + code texts
 python run.py calibrate && python run.py validate  # signal ranges; exact match with physics off
 python export_hw.py                               # -> hw_qwen35/ (about 1.4 GB)
-python emulate_hw.py --chips 0,1                  # quality on two emulated chips + sample text
+python emulate_hw.py --chips 0,1,2                # quality on three emulated chips + sample text
 python chat_server.py --port 7860                 # chat UI + docs
+python -m pytest tests                            # unit + integration tests
 ```
 
 `KLM_MODEL` selects the model (a Hugging Face id or a local directory), and `KLM_PKG` the design package location.

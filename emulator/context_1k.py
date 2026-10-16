@@ -45,6 +45,7 @@ for trial in range(20):
     print(f"trial {trial:2d}: {len(ids)} tokens, fact at token {pos}, code {code} -> "
           f"exact {'ok' if res['exact'][0] else 'MISS'} ({res['exact'][1]!r}), chip {'ok' if res['chip'][0] else 'MISS'} ({res['chip'][1]!r})", flush=True)
 print(f"\nrecall at {min(lens)}-{max(lens)} tokens: exact model {hits['exact']}/20, emulated chip {hits['chip']}/20\n", flush=True)
+SAVED = {"recall": {"tokens": [min(lens), max(lens)], "exact": hits["exact"], "chip": hits["chip"], "trials": 20}}
 
 import sys
 if "--recall-only" in sys.argv:
@@ -64,8 +65,10 @@ for dom, ids, _ in data:
     for b, (s, e) in enumerate(buckets):
         nbytes[b] += len(tok.decode(ids[s + 1:e + 1]).encode("utf-8"))
 print("bits/byte by position     exact    chip     difference")
+SAVED["positions"] = []
 for b, (s, e) in enumerate(buckets):
     ex, ch = acc["exact"][b] / math.log(2) / nbytes[b], acc["chip"][b] / math.log(2) / nbytes[b]
+    SAVED["positions"].append({"from": s, "to": e, "exact": ex, "chip": ch})
     print(f"  tokens {s:4d}-{e:4d}       {ex:.4f}   {ch:.4f}   {100 * (ch / ex - 1):+.2f}%")
 
 # 3. hardware cost of a 1024-token prompt
@@ -77,5 +80,7 @@ e_first, e_last = chip.energy_per_token(1)["total"], chip.energy_per_token(1024)
 print(f"\nhardware: 1024-token prompt in {t_prefill * 1e3:.2f} ms (pipelined, {stage * 1e9:.0f} ns per chip stage), "
       f"{e_prefill * 1e3:.2f} mJ total ({e_first * 1e6:.1f} uJ/token at the start -> {e_last * 1e6:.1f} uJ/token at 1k); "
       f"then {1 / t_token(chip):,.0f} tokens/s generation")
+SAVED["prefill_1024"] = {"seconds": t_prefill, "joules": e_prefill}
+json.dump(SAVED, open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "context_1k.json"), "w"), indent=1)
 t0 = time.time(); mx.eval(chip(mx.array(data[0][1][:1024])[None]))
 print(f"(emulating that 1024-token prompt on the M3 Max takes {time.time() - t0:.1f} s)")

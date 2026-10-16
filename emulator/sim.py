@@ -11,6 +11,7 @@ With Chip(ideal=True) the forward pass must reproduce mlx-lm's digital model (ch
 
 import math
 import os
+import zlib
 
 import mlx.core as mx
 import mlx.nn as nn
@@ -33,13 +34,17 @@ class Recorder:
     """Collects |signal| samples at named nodes during the calibration pass."""
 
     def __init__(self, per_node=200_000, seed=0):
-        self.samples, self.m2, self.per_node = {}, {}, per_node
-        self.rng = np.random.default_rng(seed)
+        self.samples, self.m2, self.per_node, self.seed = {}, {}, per_node, seed
+        self.peak = {}                                    # true maximum over ALL values (rails use it)
 
     def __call__(self, name, x, fs_of=None):
         a = np.abs(np.array(x.astype(mx.float32))).ravel()
+        self.peak[name] = max(self.peak.get(name, 0.0), float(a.max()))
         if a.size > self.per_node:
-            a = self.rng.choice(a, self.per_node, replace=False)
+            # each node gets its own random stream, so adding a node never changes another node's statistics
+            calls = len(self.samples.get(name, []))
+            rng = np.random.default_rng([self.seed, zlib.crc32(name.encode()), calls])
+            a = rng.choice(a, self.per_node, replace=False)
         self.samples.setdefault(name, []).append(a)
         return x
 
@@ -48,7 +53,7 @@ class Recorder:
         for k, v in self.samples.items():
             a = np.concatenate(v)
             out[k] = {"p99.9": float(np.percentile(a, 99.9)), "p99.99": float(np.percentile(a, 99.99)),
-                      "max": float(a.max()), "rms": float(np.sqrt((a ** 2).mean()))}
+                      "max": self.peak[k], "rms": float(np.sqrt((a ** 2).mean()))}
         return out
 
 
@@ -125,6 +130,8 @@ class AnalogQwen:
                 "line_v": None if chip.ideal else 1 + chip.mult_gain_std * mx.random.normal((g.num_v_heads, g.head_v_dim), key=next(keys)),
                 "s_fs": mx.array([F(p + f"state.h{hh}") for hh in range(g.num_v_heads)]) if not chip.ideal else 1.0,
                 "y_fs": mx.array([F(p + f"gdn_core.h{hh}") for hh in range(g.num_v_heads)])[:, None] if not chip.ideal else 1.0,
+                "mem_fs_head": (mx.array(np.repeat([F(p + f"mem_in.g{j}") for j in range(conv_dim // g.head_k_dim)], g.head_k_dim))
+                                if not chip.ideal and self.calib and f"{p}mem_in.g0" in self.calib else None),
                 "mism": chip.mem()["write_rel"] * mx.random.normal((g.num_v_heads, g.head_v_dim, g.head_k_dim), key=next(keys)),
                 "calls": 0,
                 "key": next(keys)}
@@ -135,8 +142,8 @@ class AnalogQwen:
              "q": self.xb(a.q_proj.weight, p + "norm1", p + "q", chip),
              "k": self.xb(a.k_proj.weight, p + "norm1", p + "k", chip),
              "v": self.xb(a.v_proj.weight, p + "norm1", p + "v", chip),
-             "qn": NormUnit(a.q_norm.weight, a.q_norm.eps, chip, next(keys)),
-             "kn": NormUnit(a.k_norm.weight, a.k_norm.eps, chip, next(keys)),
+             "qn": NormUnit(a.q_norm.weight, a.q_norm.eps, Chip(ideal=True) if chip.mem_digital() else chip, next(keys)),
+             "kn": NormUnit(a.k_norm.weight, a.k_norm.eps, Chip(ideal=True) if chip.mem_digital() else chip, next(keys)),
              "sig": FunctionUnit(mx.sigmoid, H * hd, chip, F(p + "attn_gate"), next(keys)),
              "gmul": Multiplier(H * hd, chip, F(p + "attn_o"), 1.0, next(keys)),
              "o": self.xb(a.o_proj.weight, p + "attn_y", p + "mix_out", chip),
@@ -207,6 +214,22 @@ class AnalogQwen:
         conv = sum(xin[:, j:j + S, :] * d["conv_w"][:, j] for j in range(K))
         conv = R(p + "conv_pre", conv)
         conv = d["conv_silu"](conv)
+        mem_conv = chip.mem_digital() and chip.on("adc")
+        if mem_conv:                                      # ADC into the digital memory unit
+            mb, skip = chip.mem_adc_bits, chip.mem_adc_skip.split(",")
+            if "qkv" not in skip:
+                if chip.mem_adc_per_head and d["mem_fs_head"] is None:
+                    raise ValueError("calibration has no per-head memory ranges (mem_in.gN); rerun run.py calibrate")
+                rng_ = d["mem_fs_head"] if chip.mem_adc_per_head else fs(self.calib, p + "mem_in", chip.fs_pct)
+                conv = adc(conv, mb, rng_)
+            if "gates" not in skip:
+                a = adc(a, mb, fs(self.calib, p + "a", chip.fs_pct))
+                b = adc(b, mb, fs(self.calib, p + "b", chip.fs_pct))
+        conv = R(p + "mem_in", conv)
+        if rec is not None:                               # per-head ranges for the memory ADC
+            hd = g.head_k_dim
+            for j in range(conv.shape[-1] // hd):
+                rec(p + f"mem_in.g{j}", conv[..., j * hd:(j + 1) * hd])
         q, k, v = [t.reshape(B, S, hh, dd) for t, hh, dd in zip(
             mx.split(conv, [g.key_dim, 2 * g.key_dim], -1),
             [g.num_k_heads, g.num_k_heads, g.num_v_heads], [g.head_k_dim, g.head_k_dim, g.head_v_dim])]
@@ -232,6 +255,8 @@ class AnalogQwen:
             y, state = gated_delta_kernel(qf, kf, vf, gdec, beta, state, None)
         if c is not None:
             c["state"] = state
+        if mem_conv and "y" not in chip.mem_adc_skip.split(","):   # DAC back to the analog part, per-head range
+            y = adc(y, chip.mem_dac_bits, d["y_fs"])
         R(p + "state", state)
         if rec is not None:
             for hh in range(g.num_v_heads):
@@ -254,6 +279,13 @@ class AnalogQwen:
         gate = gate.reshape(B, L, -1)
         keys = R(p + "k", d["k"](h))
         values = R(p + "v", d["v"](h))
+        mem_conv = chip.mem_digital() and chip.on("adc")
+        if mem_conv and "attn_in" not in chip.mem_adc_skip.split(","):   # ADC into the digital attention unit
+            mb = chip.mem_adc_bits
+            queries = adc(queries, mb, fs(self.calib, p + "q", chip.fs_pct))
+            keys = adc(keys, mb, fs(self.calib, p + "mem_in", chip.fs_pct))
+            values = adc(values, mb, fs(self.calib, p + "v", chip.fs_pct))
+        keys = R(p + "mem_in", keys)
         queries = d["qn"](queries).transpose(0, 2, 1, 3)
         keys = d["kn"](keys.reshape(B, L, Hkv, -1)).transpose(0, 2, 1, 3)
         values = values.reshape(B, L, Hkv, -1).transpose(0, 2, 1, 3)
@@ -298,6 +330,8 @@ class AnalogQwen:
             w = w * leak                                                       # stored values fade
         out = w @ values
         out = out.transpose(0, 2, 1, 3).reshape(B, L, -1)
+        if mem_conv and "attn_out" not in chip.mem_adc_skip.split(","):   # DAC back to the analog part
+            out = adc(out, chip.mem_dac_bits, fs(self.calib, p + "attn_o", chip.fs_pct))
         out = R(p + "attn_o", out)
         sg = R(p + "attn_gate", gate)
         y = R(p + "attn_y", d["gmul"](out, d["sig"](sg)))
@@ -350,7 +384,8 @@ class AnalogQwen:
                 g = d["g"]
                 cells = g.num_v_heads * g.head_v_dim * g.head_k_dim
                 if dig:   # decay, read S k, write k delta^T, read S q: ~4 MACs per cell + 2 converters per line
-                    e["memory"] += 4 * cells * c.e_dmac + 2 * (g.key_dim * 2 + g.value_dim) * c.adc_fom * 2 ** c.adc_bits
+                    e["memory"] += (4 * cells * c.e_dmac + (g.key_dim * 2 + g.value_dim + 2 * g.num_v_heads) * c.adc_fom * 2 ** c.mem_adc_bits
+                                    + g.value_dim * c.adc_fom * 2 ** c.mem_dac_bits)
                 else:
                     e["memory"] += cells * c.c_mem * c.v_mem ** 2 * 2           # write + read
                     if c.refresh_bits:   # comparator ladder per cell + recharge, every R tokens
@@ -361,7 +396,8 @@ class AnalogQwen:
                 a = d["a"]
                 cells = 2 * a.num_key_value_heads * a.head_dim
                 if dig:   # scores + value mix as digital MACs over the context
-                    e["memory"] += cells * c.e_dmac + 3 * a.num_attention_heads * a.head_dim * c.adc_fom * 2 ** c.adc_bits
+                    e["memory"] += (cells * c.e_dmac + (a.num_attention_heads * a.head_dim + cells) * c.adc_fom * 2 ** c.mem_adc_bits
+                                    + a.num_attention_heads * a.head_dim * c.adc_fom * 2 ** c.mem_dac_bits)
                     e["attention"] += 2 * a.num_attention_heads * ctx * a.head_dim * c.e_dmac
                 else:
                     e["memory"] += cells * c.c_mem * c.v_mem ** 2                # write this token's K, V

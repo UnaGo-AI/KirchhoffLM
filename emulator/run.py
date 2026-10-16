@@ -209,7 +209,7 @@ SPACE = {
 def sample(rng: random.Random, base=None, n_mut=None):
     def logu(lo, hi):
         return math.exp(rng.uniform(math.log(lo), math.log(hi)))
-    knobs = ["device", "g_max", "v_read", "t_int", "tile", "p_tia", "memory", "c_mem", "adc_bits", "ckpt_every", "fs_pct", "offset_trim", "v_mem"]
+    knobs = ["device", "g_max", "v_read", "t_int", "tile", "p_tia", "memory", "c_mem", "adc_bits", "ckpt_every", "fs_pct", "offset_trim", "v_mem", "c_cell", "ac_freq"]
     c = dict(base) if base else {}
     change = knobs if base is None else rng.sample(knobs, n_mut or rng.choice([1, 1, 2, 3]))
     for k in change:
@@ -227,10 +227,22 @@ def sample(rng: random.Random, base=None, n_mut=None):
             c[k] = logu(1e-15, 1e-12)
         elif k == "v_mem":
             c[k] = rng.uniform(0.5, 3.3)
+        elif k == "c_cell":
+            c[k] = logu(1e-15, 50e-15)
+        elif k == "ac_freq":
+            c[k] = logu(10e6, 1e9)
     d = DEVICES[c["device"]]
-    lo, hi = d["g_max"]
-    if c.get("g_max") is None or not lo <= c["g_max"] <= hi:
-        c["g_max"] = logu(lo, hi)
+    if d.get("ac"):                                       # capacitor grid: admittance comes from c_cell and ac_freq
+        if not 1e-15 <= c.get("c_cell", 0.0) <= 50e-15:
+            c["c_cell"] = logu(1e-15, 50e-15)
+        if not 10e6 <= c.get("ac_freq", 0.0) <= 1e9:
+            c["ac_freq"] = logu(10e6, 1e9)
+        c["g_max"] = 1.0                                  # not used by AC devices
+        c["t_int"] = max(c.get("t_int", 100e-9), 3.0 / c["ac_freq"])   # at least 3 carrier cycles per read
+    else:
+        lo, hi = d["g_max"]
+        if c.get("g_max") is None or not lo <= c["g_max"] <= hi:
+            c["g_max"] = logu(lo, hi)
     if c.get("v_read") is None or c["v_read"] > d["v_max"]:
         c["v_read"] = rng.uniform(0.02, d["v_max"])
     return c
@@ -258,7 +270,7 @@ def cmd_search(a):
         else:
             parent = rng.choice(pareto(rows))
             knobs = sample(rng, {k: parent["chip"][k] for k in ("device", "g_max", "v_read", "t_int", "tile", "p_tia",
-                                                                 "memory", "c_mem", "adc_bits", "ckpt_every", "fs_pct", "offset_trim", "v_mem")})
+                                                                 "memory", "c_mem", "adc_bits", "ckpt_every", "fs_pct", "offset_trim", "v_mem", "c_cell", "ac_freq")})
         chip = Chip(**knobs).validate()
         h = chip_hash(chip)
         if h in done:

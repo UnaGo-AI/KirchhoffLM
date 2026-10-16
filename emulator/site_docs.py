@@ -312,13 +312,14 @@ Real silicon often lands 10–100× worse than simulation on energy because of c
 <h2>Capacitor cell</h2>
 {_table(["property", "value"], [
         ["Unit capacitor", f"{man['units']['c_unit_F'] * 1e18:.1f} aF (255 per full cell)"],
-        ["Mismatch (Pelgrom)", f"σC/C = 0.4 % × √(1 fF / C) → {100 * cap.prog_rel():.2f} % at {d['c_cell'] * 1e15:g} fF"],
+        ["Mismatch (Pelgrom)", f"σC/C = 0.4 % × √(1 fF / C): {100 * cap.prog_rel():.2f} % for a full {d['c_cell'] * 1e15:g} fF cell, "
+                               f"{100 * cap.prog_rel() * 255 ** 0.5:.1f} % for a single unit capacitor"],
         ["Carrier phase noise", f"{dev['read_rel']:g} rad"],
         ["Thermal noise in the grid", "none (capacitors are noiseless; noise comes from the amplifiers)"],
         ["Cell area", f"{cap.cell_area_um2():.1f} µm² per cell (two cells per weight)"]])}
 <h2>Error sources and how each is modelled</h2>
 {_table(["effect", "model", "type"], [
-        ["Capacitor mismatch", "random per cell, size from Pelgrom's law", "fixed per chip"],
+        ["Capacitor mismatch", "random per cell, Pelgrom's law σC = 0.4 % × √(1 fF × C): small capacitors have larger relative error", "fixed per chip"],
         ["Unit-capacitor rounding", "weights rounded to 255 levels per row", "fixed"],
         ["Stray crossing capacitance", "0.05 fF per crossing, 10 % mismatch between the pair", "fixed per chip"],
         ["Wire phase delay", "distributed RC (Elmore) along row wires; detector keeps cos φ; 90 % calibrated", "fixed"],
@@ -326,8 +327,9 @@ Real silicon often lands 10–100× worse than simulation on energy because of c
         ["Amplifier gain / offset", "0.5 % gain; offset 0.2 % of range × 2 % left after demodulation", "fixed per chip"],
         ["Rails", "inputs and outputs clip at the calibrated full scale", "deterministic"],
         ["SiLU / sigmoid / multipliers / norms", "1 % gain, small trimmed offsets, tanh compression in multipliers", "fixed per chip"],
-        ["ADCs and links", "uniform rounding (7-bit inside chips, 10-bit links, 8-bit output referenced to the peak)", "deterministic"],
-        ["Digital memory", "exact (SRAM)", "—"]])}
+        ["ADCs and links", "uniform rounding (checkpoint ADCs, 10-bit links, output ADC referenced to the peak)", "deterministic"],
+        ["Memory converters", "ADC into and DAC out of the digital memory: uniform rounding at 10 bits, per-head range for the DeltaNet read-out", "deterministic"],
+        ["Digital memory", "exact (SRAM, digital arithmetic)", "—"]])}
 <h2>Not modelled</h2>
 <ul><li>Leakage power of ~8,000 mm² of silicon, clock distribution, control logic, host I/O, cooling.</li>
 <li>Defects and redundancy repair; temperature gradients across a chip; supply noise; long-term ageing.</li>
@@ -336,32 +338,53 @@ Real silicon often lands 10–100× worse than simulation on energy because of c
 </div>"""
 
 
+def _json(name):
+    p = os.path.join(RUNS, name)
+    return json.load(open(p)) if os.path.exists(p) else None
+
+
 def results_html(man):
-    ref = man["reference_bits_per_byte"]["mean"]
+    emu, ctx, abl = _json("emulate.json"), _json("context_1k.json"), _json("ablate_chain.json")
     lb = [r for r in _jsonl("layer_bench.jsonl") if r["design"] == "AC"]
     layer_bars = bars_svg([(f"L{r['layer']} {r['kind']}", r["loss_pct"]) for r in lb],
-                          title="Quality loss when only this layer runs on its chip (AC design, all other layers exact)") if lb else ""
-    tiles = [r for r in json.load(open(os.path.join(RUNS, "circuit_tile.json")))] if os.path.exists(os.path.join(RUNS, "circuit_tile.json")) else []
+                          title="Quality loss when only this layer runs on its chip (AC design, all other layers exact)") if lb else "<p>not measured</p>"
+    tiles = json.load(open(os.path.join(RUNS, "circuit_tile.json"))) if os.path.exists(os.path.join(RUNS, "circuit_tile.json")) else []
     tile_rows = [[r["config"], r["tile"], f"{r['r_seg']:g} Ω", f"{r['couple_fF']:g} fF", f"{100 * r['err_cal']:.2f} %"]
                  for r in tiles if r["couple_fF"] in (0.0, 0.1) and not (r["config"].startswith("DC") and r["couple_fF"])]
     tiny_p = os.path.join(RUNS, "tiny_hw", "eval_digital_finetune.json")
     tiny = json.load(open(tiny_p))["digital"] if os.path.exists(tiny_p) else None
-    budget = bars_svg([("8-bit links (vs 10-bit)", 2.57), ("ADCs inside chips (7-bit)", 1.68), ("Multipliers", 0.69),
-                       ("Rails (clipping)", 0.46), ("Amplifier noise", 0.23), ("Capacitor grid errors", 0.0)],
-                      title="Where the loss of the AC chain comes from (removing one effect at a time, measured 2026-10-16)", color=CORAL)
+    if emu:
+        ref = emu["reference"]
+        q_rows = [["Original digital model", f"{ref:.4f}", "—"],
+                  ["Design package values only (no physics)", f"{emu['package_exact']:.4f}", f"{100 * (emu['package_exact'] / ref - 1):+.2f} %"]]
+        q_rows += [[f"Emulated chip #{k}", f"{v['bits_per_byte']:.4f}", f"{100 * (v['bits_per_byte'] / ref - 1):+.2f} %"] for k, v in emu["chips"].items()]
+        quality = _table(["run", "bits/byte", "vs original"], q_rows)
+    else:
+        quality = "<p>not measured</p>"
+    if ctx:
+        c_rows = [[f"Recall a number hidden early in ~{ctx['recall']['tokens'][0]} tokens ({ctx['recall']['trials']} trials)",
+                   f"{ctx['recall']['exact']} / {ctx['recall']['trials']}", f"{ctx['recall']['chip']} / {ctx['recall']['trials']}"]]
+        c_rows += [[f"Bits/byte, tokens {p['from']}–{p['to']}", f"{p['exact']:.4f}", f"{p['chip']:.4f} ({100 * (p['chip'] / p['exact'] - 1):+.1f} %)"]
+                   for p in ctx["positions"]]
+        context = _table(["test", "exact model", "emulated chip"], c_rows)
+    else:
+        context = "<p>not measured</p>"
+    if abl:
+        base = abl["all"]
+        items = [("8-bit links (vs 10-bit)", base - abl["links"]["10"])]
+        names = {"adc": "ADCs and memory converters", "mult": "Multipliers", "rails": "Rails (clipping)", "noise": "Amplifier noise",
+                 "prog": "Capacitor mismatch", "ir": "Wire phase delay", "fu": "SiLU / sigmoid units", "norm": "Norm units", "levels": "Unit-capacitor rounding"}
+        items += sorted(((names[k], base - abl["without"][k]) for k in names if k in abl["without"]), key=lambda kv: -kv[1])
+        budget = bars_svg([(n, max(v, 0.0)) for n, v in items],
+                          title=f"Where the loss of the AC chain (8-bit links, {base:+.2f} % in total) comes from: removing one effect at a time", color=CORAL)
+    else:
+        budget = "<p>not measured</p>"
     return CSS + f"""<div class="hwdoc">
 <h2>Qwen3.5-0.8B: quality on the emulated chips</h2>
-{_table(["run", "bits/byte", "vs original"], [
-        ["Original digital model", f"{ref:.4f}", "—"],
-        ["Design package values only (no physics)", "0.7398", "−0.06 % (translation is lossless)"],
-        ["Emulated chip #0", "0.7585", "+2.45 %"],
-        ["Emulated chip #1", "0.7564", "+2.18 %"]])}
-<p class="note">12 held-out texts (6 Wikipedia, 6 code), 1,024 tokens each. Measured 2026-10-15. Lower bits/byte is better.</p>
+{quality}
+<p class="note">12 held-out texts (6 Wikipedia, 6 code), 1,024 tokens each; 10-bit chip links; lower bits/byte is better.</p>
 <h2>Long context (1,024 tokens)</h2>
-{_table(["test", "exact model", "emulated chip"], [
-        ["Recall a number hidden early in ~980 tokens (20 trials)", "20 / 20", "20 / 20"],
-        ["Bits/byte, tokens 0–256", "0.8250", "0.8500 (+3.0 %)"],
-        ["Bits/byte, tokens 768–1023", "0.6748", "0.6927 (+2.6 %)"]])}
+{context}
 <p>The hardware error does not grow with context, because the memory of earlier tokens is digital.</p>
 <h2>Error budget</h2>{budget}
 <h2>Sensitivity per layer</h2>{layer_bars}
@@ -374,9 +397,16 @@ def results_html(man):
                                    ["Unseen chips #1–4", ", ".join(f"{tiny[f'chip{c}']:.4f}" for c in range(1, 5))]]) if tiny else "<p>not available</p>"}
 <h2>Speed and energy (estimates)</h2>
 {_table(["", "emulated analog chain", "M3 Max GPU (measured, digital)", "H100 (estimated)"], [
-        ["Generation, one user", "~37,000 tokens/s", "191 tokens/s", "~800–1,600 tokens/s"],
-        ["Energy per token, one user", "~5–15 µJ", "~0.2 J", "~0.3 J"],
-        ["1,024-token prompt", "1.2 ms, 7.4 mJ", "134 ms", "~3–6 ms, ~2–4 J"]])}
+        ["Generation, one user", f"~{list(emu['chips'].values())[0]['tokens_per_s']:,.0f} tokens/s" if emu else "—", "191 tokens/s", "~800–1,600 tokens/s"],
+        ["Energy per token, one user", f"~{list(emu['chips'].values())[0]['energy_j'] * 1e6:.0f} µJ at 2k context" if emu else "—", "~0.2 J", "~0.3 J"],
+        ["1,024-token prompt", f"{ctx['prefill_1024']['seconds'] * 1e3:.1f} ms, {ctx['prefill_1024']['joules'] * 1e3:.1f} mJ" if ctx else "—", "134 ms", "~3–6 ms, ~2–4 J"]])}
+<h2>Corrections</h2>
+<p>2026-10-16: an external review found four issues. (1) The converters around the digital memory were not simulated;
+(2) capacitor mismatch did not grow for small capacitors as Pelgrom's law requires; (3) the design search crashed for capacitor
+grids; (4) the numerical checks did not assert. Fixing them also exposed (5) a calibration that took the signal peak from a random
+subsample, so rails clipped real peaks, and (6) a memory ADC with one range for all channels, which rounded quiet heads away. All are
+fixed, covered by regression tests, and every number on this site was re-measured afterwards. The design now uses per-head ADC
+ranges (10 bits) into the memory and 12-bit DACs out of it.</p>
 <p class="note">Analog numbers come from the circuit timing and energy model of an unbuilt chip; NVIDIA numbers are scaled from the M3 Max
 measurement using memory bandwidth and compute specs. Treat all of them as order-of-magnitude.</p>
 </div>"""

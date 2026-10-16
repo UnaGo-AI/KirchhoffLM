@@ -45,16 +45,22 @@ def page(fname, title, body):
 
 def overview(man):
     t, d = man["totals"], man["design"]
+    emu = json.load(open(os.path.join(ROOT, "runs", "emulate.json")))
+    ctx = json.load(open(os.path.join(ROOT, "runs", "context_1k.json")))
+    ref = emu["reference"]
+    chips = [v["bits_per_byte"] for v in emu["chips"].values()]
+    lo, hi = 100 * (min(chips) / ref - 1), 100 * (max(chips) / ref - 1)
+    tps = list(emu["chips"].values())[0]["tokens_per_s"]
     return site_docs.CSS + f"""<div class="hwdoc">
 <h1>KirchhoffLM</h1>
 <p style="font-size:1.15em">A modern language model, <b>Qwen3.5-0.8B</b>, translated into an <b>analog chip design</b>: every weight is a pair
 of capacitors, every matrix product is done by currents adding up on wires (Kirchhoff's law), and the whole model runs through a
 physics emulator of 24 layer chips.</p>
 {site_docs._table(["", ""], [
-        ["Quality on emulated chips", "+2.2 – 2.5 % bits/byte vs the original model (0.758 / 0.756 vs 0.740)"],
-        ["Long context", "20 / 20 recall of a fact hidden in ~980 tokens (same as the exact model)"],
-        ["Emulated speed", "~37,000 tokens/s for one user (~27 µs per token)"],
-        ["Emulated energy", "~5–15 µJ per token (estimate; ~97 % is the digital memory)"],
+        ["Quality on emulated chips", f"{lo:+.1f} to {hi:+.1f} % bits/byte vs the original model ({len(chips)} chips; {min(chips):.3f}–{max(chips):.3f} vs {ref:.3f})"],
+        ["Long context", f"{ctx['recall']['chip']} / {ctx['recall']['trials']} recall of a fact hidden in ~{ctx['recall']['tokens'][0]} tokens (exact model: {ctx['recall']['exact']} / {ctx['recall']['trials']})"],
+        ["Emulated speed", f"~{tps:,.0f} tokens/s for one user"],
+        ["Emulated energy", f"~{list(emu['chips'].values())[0]['energy_j'] * 1e6:.0f} µJ per token at 2k context (estimate; most of it is the digital memory)"],
         ["Hardware", f"{t['capacitor_cells']:,} capacitors · {t['amplifiers']:,} amplifiers · ~{t['area_mm2']:,.0f} mm² over 25 chips"],
         ["Weight cell", f"AC capacitor grid, up to {d['c_cell'] * 1e15:g} fF in 255 unit steps, {d['ac_freq'] / 1e6:g} MHz carrier"]])}
 <h2>Start here</h2>

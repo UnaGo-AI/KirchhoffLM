@@ -218,7 +218,7 @@ def build_trace(text, mx, tok, man, cal, exact, chip, model, fs_fn, t_token):
                     "tables of 128 × 128 numbers that are updated with every word and read to find what matters now.",
                     "Analog memory turned out too noisy, so this memory is digital: signals go through an ADC into SRAM, the "
                     "memory is updated with digital multiply-adds, and the answer goes back through a DAC to the analog part. "
-                    "(In this emulator the digital memory is exact.)",
+                    "The emulator rounds the signals at both converters; the digital arithmetic itself is exact.",
                     f"<p class='num'>memory read-out, first 8 numbers: {_vec(core_e)}<br>on the chip: {_vec(core_c)}</p>"))
 
     k = int(np.argmax(np.abs(r_ch)))

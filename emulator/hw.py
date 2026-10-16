@@ -82,6 +82,10 @@ class Chip:
     memory: str = "igzo"        # capacitor memory technology
     c_mem: float = 10e-15       # F, memory cell capacitance
     adc_bits: int = 8           # output and checkpoint converters
+    mem_adc_bits: int = 10      # ADC into the digital memory (DeltaNet state, attention)
+    mem_dac_bits: int = 12      # DAC out of the digital memory (the read-out needs more precision)
+    mem_adc_skip: str = ""      # ablation: converter groups left out: qkv, gates, y, attn_in, attn_out
+    mem_adc_per_head: bool = True   # one ADC range per head (128 channels) for q/k/v into the DeltaNet memory
     ckpt_every: int = 0         # re-digitise the residual stream every k layers (0 = never)
     fs_pct: float = 99.99       # percentile of calibrated |signal| that maps to the rails
     offset_trim: float = 0.1    # residual offset after auto-zero / trim (1 = untrimmed); costs power
@@ -172,15 +176,17 @@ class Chip:
         return a if a is not None else self.c_cell / self.cap_density + 0.3
 
     def prog_rel(self):
+        """Programming error relative to a FULL cell. For capacitors (Pelgrom, sigma_C = 0.4 % * sqrt(1 fF * C))
+        smaller cells have a larger relative error: sigma_C / C = prog_rel * sqrt(C_full / C)."""
         d = self.dev()
-        if d["prog_rel"] is None:                     # Pelgrom matching of metal capacitors
+        if d["prog_rel"] is None:
             return 0.004 * math.sqrt(1e-15 / self.c_cell)
         return d["prog_rel"]
 
     def validate(self):
         d = self.dev()
         lo, hi = d["g_max"]
-        if self.is_ac() and self.t_int * self.ac_freq < 3:
+        if self.is_ac() and self.t_int * self.ac_freq < 3 - 1e-6:
             raise ValueError(f"t_int {self.t_int:g} s holds fewer than 3 carrier cycles at {self.ac_freq:g} Hz")
         if not lo <= self.g_max <= hi:
             raise ValueError(f"g_max {self.g_max:g} outside {self.device} range [{lo:g}, {hi:g}]")
@@ -274,7 +280,12 @@ class Crossbar:
             k1, k2, k3, k4, k5 = split_keys(kk, 5)
             if chip.on("prog"):
                 g = g + d["prog_abs"] * g_max * mx.random.normal(g.shape, key=k1)
-                g = g * (1 + chip.prog_rel() * mx.random.normal(g.shape, key=k2))
+                if d["prog_rel"] is None:
+                    # Pelgrom: sigma_C = a * sqrt(C). Relative to a full cell this is prog_rel(), so a cell
+                    # holding the fraction g / g_max of the full capacitance gets sigma = prog_rel * g_max * sqrt(g / g_max)
+                    g = g + chip.prog_rel() * g_max * mx.sqrt(mx.maximum(g, 0.0) / g_max) * mx.random.normal(g.shape, key=k2)
+                else:
+                    g = g * (1 + d["prog_rel"] * mx.random.normal(g.shape, key=k2))
             if d["stuck"] > 0 and chip.on("stuck"):
                 r = mx.random.uniform(shape=g.shape, key=k3)
                 g = mx.where(r < d["stuck"] / 2, g_min, mx.where(r > 1 - d["stuck"] / 2, g_max, g))

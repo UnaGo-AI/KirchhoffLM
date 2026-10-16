@@ -77,13 +77,17 @@ def main():
     print(f"original digital model (export time)      {ref:.4f} bits/byte")
     print(f"package, component values only (no physics) {exact:.4f} bits/byte  ({100 * (exact / ref - 1):+.2f}%)", flush=True)
     design = man["design"]
+    saved = {"reference": ref, "package_exact": exact, "chips": {}}
     for seed in map(int, a.chips.split(",")):
         chip = Chip(**{**design, "seed": seed})
         emu = AnalogQwen(model, chip, calib)
         r = bits_per_byte(emu, data)["mean"]
         e = emu.energy_per_token(2048)
+        saved["chips"][str(seed)] = {"bits_per_byte": r, "energy_j": e["total"], "tokens_per_s": 1 / t_token(emu)}
         print(f"emulated chip #{seed}                            {r:.4f} bits/byte  ({100 * (r / ref - 1):+.2f}%)  "
               f"{e['total'] * 1e6:.1f} uJ/token  {1 / t_token(emu):,.0f} tokens/s", flush=True)
+    os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs"), exist_ok=True)
+    json.dump(saved, open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs", "emulate.json"), "w"), indent=1)
     emu = AnalogQwen(model, Chip(**{**design, "seed": 0}), calib)
     for prompt in ("The capital of France is", "def fibonacci(n):"):
         print(f"\n--- generated on emulated chip #0 ---\n{generate(emu, tok, prompt)}", flush=True)
