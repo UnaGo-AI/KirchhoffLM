@@ -1,5 +1,7 @@
 # KirchhoffLM
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 **A modern language model translated into analog chip hardware, and run in a physics emulator.**
 
 Every weight of [Qwen3.5-0.8B](https://huggingface.co/Qwen/Qwen3.5-0.8B) becomes a pair of capacitors. Every matrix product
@@ -72,6 +74,11 @@ python chat_server.py --port 7860                 # chat UI + docs
 [KirchhoffNet](https://arxiv.org/abs/2310.15872) (MIT/CMU) proposes new continuous-time neural networks whose dynamics *are*
 a circuit; it was evaluated on small tasks and does not model non-idealities. KirchhoffLM takes the opposite route. It keeps an
 existing LLM unchanged, maps it onto realistic hardware, and measures the cost of the hardware's errors.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Copyright 2026 UnaGo.
+The Qwen3.5 model is licensed separately by its authors; no model weights are included here.
 
 ---
 Built by UnaGo.
