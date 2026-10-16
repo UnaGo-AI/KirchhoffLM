@@ -410,3 +410,72 @@ ranges (10 bits) into the memory and 12-bit DACs out of it.</p>
 <p class="note">Analog numbers come from the circuit timing and energy model of an unbuilt chip; NVIDIA numbers are scaled from the M3 Max
 measurement using memory bandwidth and compute specs. Treat all of them as order-of-magnitude.</p>
 </div>"""
+
+
+def multiplex_svg():
+    p = [DEFS]
+    p.append(_box(10, 70, 150, 64, CORAL, "Weight store", "SRAM / 3D-stacked / HBM"))
+    p.append(_arrow(160, 102, 196, 102))
+    p.append(_box(198, 70, 130, 64, CORAL, "Loader (DMA)", "16 bits per weight"))
+    p.append(_arrow(328, 92, 372, 62))
+    p.append(_arrow(328, 112, 372, 142))
+    p.append(_box(374, 30, 180, 56, TEAL, "Bank A", "layer i: computing"))
+    p.append(_box(374, 120, 180, 56, TEAL, "Bank B", "layer i+1: loading"))
+    p.append(_arrow(554, 58, 600, 92))
+    p.append(_arrow(554, 148, 600, 112))
+    p.append(_box(602, 72, 160, 60, GRAY, "Analog engine", "demod, SiLU, norms"))
+    p.append(_arrow(762, 102, 800, 102))
+    p.append(_box(802, 72, 168, 60, CORAL, "Per-user state", "DeltaNet state, KV"))
+    p.append('<line x1="10" y1="214" x2="970" y2="214" stroke="#BA7517" stroke-width="3"/>')
+    p.append('<text x="490" y="236" text-anchor="middle" font-size="12">layer-index bus: the sequencer announces which layer runs; '
+             'every block switches to that layer\'s weights, state and ranges</text>')
+    for x in (85, 263, 464, 682, 886):
+        p.append(f'<line x1="{x}" y1="{214}" x2="{x}" y2="{186 if x != 464 else 178}" stroke="#BA7517" stroke-width="1.2" stroke-dasharray="3 3"/>')
+    return f'<svg viewBox="0 0 980 250" width="100%" role="img" style="color:var(--body-text-color)"><title>Layer-multiplexed engine</title>{"".join(p)}</svg>'
+
+
+def alternative_html(man):
+    q, t = _json("multiplex_quality.json"), _json("multiplex_timing.json")
+    q_table = _table(["design", "chip #0", "chip #1", "chip #2"],
+                     [[c["label"]] + [f"{x:+.2f} %" for x in c["loss_pct"]] for c in q["configs"]]) if q else "<p>not measured</p>"
+
+    def timing(model):
+        if not t or model not in t:
+            return "<p>not computed</p>"
+        m, s = t[model], t[model]["stationary"]
+        rows = [["one chip per layer (fixed)", "—", f"{s['tokens_per_s_user']:,.0f}", f"{s['tokens_per_s_total']:,.0f}",
+                 f"{s['uJ_per_token']:,.1f}", f"{s['area_mm2']:,.0f}"]]
+        rows += [[f"multiplexed, {r['store']}", r["batch"], f"{r['tokens_per_s_user']:,.0f}", f"{r['tokens_per_s_total']:,.0f}",
+                  f"{r['uJ_per_token']:,.1f} ({100 * r['reload_share']:.0f} % reload)", f"{r['area_mm2']:,.0f}"]
+                 for r in m["multiplexed"] if r["batch"] in (1, 128, 1024)]
+        return _table(["design", "batch", "tok/s per user", "tok/s total", "µJ per token", "area mm²"], rows)
+    return CSS + f"""<div class="hwdoc">
+<h2>An alternative: one engine, re-programmed layer by layer</h2>
+<p>The main design keeps every weight fixed in place: one chip per layer. The alternative keeps the weights in memory and
+<b>re-programs a small number of capacitor arrays for each layer</b>. Each cell is a switched capacitor bank: 8 binary-weighted
+capacitors (1, 2, 4 … 128 unit capacitors) connected by switches that SRAM bits control, so a layer is loaded like memory.
+A sequencer broadcasts the layer index on a bus; while bank A computes layer <i>i</i>, bank B loads layer <i>i+1</i>.</p>
+{_legend()}{multiplex_svg()}
+<h2>Quality (Qwen3.5-0.8B, emulated)</h2>
+{q_table}
+<p class="note">Programmable banks model every bit capacitor's Pelgrom error and the coupling of open switches. "Shared array" means
+all layers run on the same physical cells, so their manufacturing errors repeat in every layer. Program-and-verify uses the chip's
+measured errors to choose, for each weight, the switch code closest to the target.</p>
+<h2>Speed, energy, area: Qwen3.5-0.8B</h2>{timing("Qwen3.5-0.8B")}
+<h2>Speed, energy, area: a 1T mixture-of-experts model (32B active)</h2>{timing("1T MoE (32B active)")}
+<h2>What this shows</h2>
+<ul>
+<li>Re-programming a layer takes about 10 µs, against about 1 µs of computing, so a load must serve many tokens (many users, or a
+long prompt). Single-user speed drops about 10×.</li>
+<li>With weights in on-chip SRAM and batches of 128 or more, the energy per token matches the fixed design with about half the silicon.</li>
+<li>With weights in off-chip memory (HBM, DDR) moving the weights costs most of the energy again: the memory wall that analog
+compute was meant to avoid. A 3D-stacked weight store on top of the engine keeps that cost low and is the only route that scales to 1T.</li>
+<li>Per-user memory (DeltaNet state, KV cache) must also be swapped per layer, so batch size is limited by memory, as on GPUs.</li>
+<li>Quality: programmable banks cost almost nothing compared with fixed capacitors. Sharing one physical array across all layers
+costs about 1.5 points, and that comes from per-column errors (amplifier gain and offset, wire phase, stray capacitance) repeating
+in every layer, not from the capacitor cells, so program-and-verify of the cells does not remove it. Per-column amplifier trims would
+be the next step.</li>
+</ul>
+<p class="note">Timing and energy come from an order-of-magnitude model (emulator/multiplex_model.py), not from the circuit emulator.
+For a mixture-of-experts model, tokens in one batch use different experts, so the reuse per load is lower than assumed here.</p>
+</div>"""

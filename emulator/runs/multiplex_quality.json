@@ -1,0 +1,62 @@
+{
+ "reference": 0.7398442150865792,
+ "configs": [
+  {
+   "label": "fixed capacitors, one chip per layer (current design)",
+   "settings": {},
+   "loss_pct": [
+    3.0347933424733853,
+    2.356035882712182,
+    3.0751549323834837
+   ]
+  },
+  {
+   "label": "programmable bank, one array per layer",
+   "settings": {
+    "device": "cap_bank"
+   },
+   "loss_pct": [
+    3.090318102309908,
+    2.5958056865450274,
+    3.271051198586372
+   ]
+  },
+  {
+   "label": "programmable bank, one array per layer, program-and-verify",
+   "settings": {
+    "device": "cap_bank",
+    "pv_calibrate": true
+   },
+   "loss_pct": [
+    3.192048203733422,
+    2.5154325898174568,
+    3.234667508030964
+   ]
+  },
+  {
+   "label": "programmable bank, shared array (multiplexed)",
+   "settings": {
+    "device": "cap_bank",
+    "shared_array": true
+   },
+   "loss_pct": [
+    4.6195164472873085,
+    4.289719921133162,
+    4.570491804257526
+   ]
+  },
+  {
+   "label": "programmable bank, shared array (multiplexed), program-and-verify",
+   "settings": {
+    "device": "cap_bank",
+    "shared_array": true,
+    "pv_calibrate": true
+   },
+   "loss_pct": [
+    4.67014183017842,
+    3.797683120371542,
+    4.6348714089247345
+   ]
+  }
+ ]
+}

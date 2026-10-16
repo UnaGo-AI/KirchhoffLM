@@ -10,7 +10,8 @@ import site_docs
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PAGES = [("index.html", "Overview"), ("how-it-works.html", "How it works"), ("chip-design.html", "Chip design"),
-         ("signal-journey.html", "Signal journey"), ("assumptions.html", "Assumptions"), ("results.html", "Results")]
+         ("signal-journey.html", "Signal journey"), ("assumptions.html", "Assumptions"), ("results.html", "Results"),
+         ("alternative.html", "Alternative design")]
 SHELL = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title} · KirchhoffLM</title>
 <meta name="description" content="KirchhoffLM: a 0.8B-parameter language model translated into analog capacitor-grid hardware and run in an emulator.">
@@ -67,7 +68,8 @@ physics emulator of 24 layer chips.</p>
 <ul><li><a href="signal-journey.html">Signal journey</a> — follow one word through the chips, explained for a school student.</li>
 <li><a href="chip-design.html">Chip design</a> — diagrams and every element of the chip.</li>
 <li><a href="how-it-works.html">How it works</a> and <a href="assumptions.html">Assumptions</a> — what the emulator models and what it does not.</li>
-<li><a href="results.html">Results</a> — quality, error budget, per-layer sensitivity, circuit checks.</li></ul>
+<li><a href="results.html">Results</a> — quality, error budget, per-layer sensitivity, circuit checks.</li>
+<li><a href="alternative.html">Alternative design</a> — one programmable engine re-loaded layer by layer instead of one chip per layer.</li></ul>
 <p class="note">A simulation study by UnaGo. No chip has been built; device values are literature-range assumptions and real silicon
 usually lands well below simulated efficiency. Related but different: KirchhoffNet (MIT/CMU, 2023) builds new continuous-time networks
 from circuits; KirchhoffLM maps an existing LLM onto realistic hardware and models its errors.</p></div>"""
@@ -92,7 +94,8 @@ def main():
     os.makedirs(a.out, exist_ok=True)
     bodies = {"index.html": overview(man), "how-it-works.html": site_docs.how_it_works_html(man),
               "chip-design.html": site_docs.chip_design_html(man), "signal-journey.html": journey(a.server),
-              "assumptions.html": site_docs.assumptions_html(man), "results.html": site_docs.results_html(man)}
+              "assumptions.html": site_docs.assumptions_html(man), "results.html": site_docs.results_html(man),
+              "alternative.html": site_docs.alternative_html(man)}
     for fname, title in PAGES:
         open(os.path.join(a.out, fname), "w").write(page(fname, title, bodies[fname]))
     open(os.path.join(a.out, ".nojekyll"), "w").close()

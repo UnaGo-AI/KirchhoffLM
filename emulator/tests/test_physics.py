@@ -126,3 +126,36 @@ def test_calibration_max_is_the_true_maximum():
     x[0, 7, 123] = 50.0                                   # one rare peak among 262,144 values
     rec("node", x)
     assert rec.stats()["node"]["max"] == 50.0
+
+
+def _bank_chip(**over):
+    return Chip(**{"device": "cap_bank", "c_cell": 10e-15, "ac_freq": 100e6, "v_read": 0.5, "t_int": 100e-9, **over})
+
+
+def test_bank_without_errors_gives_exact_codes():
+    from hw import bank_cells
+    t = mx.random.uniform(shape=(64, 300))
+    chip = _bank_chip(off=",".join(e for e in EFFECTS if e != "levels"))
+    v = bank_cells(t, chip, mx.random.key(0))
+    assert float(mx.abs(v - mx.round(t * 255) / 255).max()) < 1e-6
+
+
+def test_bank_same_physical_cells_same_errors():
+    from hw import bank_cells
+    t = mx.random.uniform(shape=(32, 128))
+    a = bank_cells(t, _bank_chip(), mx.random.key(9))
+    b = bank_cells(t, _bank_chip(), mx.random.key(9))
+    c = bank_cells(t, _bank_chip(), mx.random.key(10))
+    assert float(mx.abs(a - b).max()) == 0.0 and float(mx.abs(a - c).max()) > 0.0
+
+
+def test_bank_program_and_verify_improves_the_differential_weight():
+    """Calibration must target the weight the circuit uses: the difference C+ - C- (incl. open-switch coupling)."""
+    w = mx.random.normal((256, 512)) * 0.02
+    w[:, 0] = 0.1                                          # row scale
+    keep = ",".join(e for e in EFFECTS if e not in ("prog", "levels"))
+    errs = {}
+    for pv in (False, True):
+        xb = Crossbar(w, _bank_chip(off=keep, pv_calibrate=pv, c_par=0.0), 1.0, 1.0, mx.random.key(4))
+        errs[pv] = float(np.array(xb.w_eff[:, 1:] - w[:, 1:]).std())
+    assert errs[True] < 0.9 * errs[False], f"with program-and-verify {errs[True]:.2e}, without {errs[False]:.2e}"

@@ -33,6 +33,27 @@ Other findings:
   With one range per layer, 10-bit ADCs cost +51 %.
 - 10-bit chip-to-chip links cost about 3 points less than 8-bit links.
 
+## Alternative design: one programmable engine, re-loaded per layer
+
+Instead of one chip per layer, the weights stay in memory, and a few **programmable capacitor engines** are re-loaded for each layer.
+Each weight cell is a switched capacitor bank: 8 binary-weighted capacitors behind SRAM-controlled switches. A sequencer broadcasts
+the layer index on a bus, and two banks per engine alternate between computing and loading. See the website's *Alternative design* page.
+
+| Qwen3.5-0.8B, emulated (3 chips) | quality loss |
+|---|---|
+| fixed capacitors, one chip per layer | +2.4 – 3.1 % |
+| programmable banks, one array per layer | +2.6 – 3.3 % |
+| programmable banks, one shared array for all layers | +4.3 – 4.6 % |
+
+Shared arrays repeat per-column errors in every layer. Calibrating the cells (program-and-verify) does not remove that; per-column
+amplifier trims would.
+
+Timing and energy come from an order-of-magnitude model (`emulator/multiplex_model.py`):
+- Re-loading a layer takes ~10 µs against ~1 µs of compute, so it pays off only with batches of ≥128 tokens or users.
+- With on-chip SRAM weights, it needs about half the silicon for the same energy, but single-user speed drops ~10×.
+- With off-chip memory (HBM, DDR), moving the weights dominates the energy again.
+- For 1T-class models, only a 3D-stacked weight store on top of the engine keeps it efficient.
+
 ## Corrections
 
 On 2026-10-16 an external review found four issues:
@@ -68,6 +89,7 @@ token → embedding → [chip L0] → [chip L1] → … → [chip L23] → outpu
 | `emulator/chat_server.py` | Gradio chat UI with a live processing log, the Signal journey and the documentation pages |
 | `emulator/run.py`, `layer_bench.py`, `ac_dc.py`, … | experiments: sweeps, design search, per-layer chips, AC vs DC |
 | `emulator/tiny_hw.py` | TinyStories model with hardware-parameter training (exploratory) |
+| `emulator/multiplex_model.py`, `multiplex_eval.py` | the alternative design: timing/energy model and emulator quality |
 | `emulator/tests/` | regression tests: kernel, Pelgrom mismatch, sampler, converters, calibration, model equivalence |
 | `emulator/runs/` | result files used by the website |
 | `docs/` | the GitHub Pages site (built by `emulator/build_site.py`) |

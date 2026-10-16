@@ -254,6 +254,8 @@ with gr.Blocks(title="Analog Qwen3.5 emulator") as app:
         gr.HTML(site_docs.assumptions_html(MAN))
     with gr.Tab("Results"):
         gr.HTML(site_docs.results_html(MAN))
+    with gr.Tab("Alternative design"):
+        gr.HTML(site_docs.alternative_html(MAN))
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()

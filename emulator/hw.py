@@ -52,6 +52,13 @@ DEVICES = {
     # mismatch follows Pelgrom: sigma_C/C = 0.4% * sqrt(1 fF / C); read_rel = carrier phase noise.
     # levels: binary-weighted unit capacitors (8 bit). Energy per cycle C V^2 / q_res (resonant
     # LC drive recycles the stored energy; q_res = 1 means plain switched drive).
+    # Programmable switched capacitor bank: each cell is 8 binary-weighted capacitors (1, 2, 4 ... 128 unit capacitors)
+    # connected by switches that SRAM bits control, so weights are loaded like memory. Every bit capacitor has its own
+    # Pelgrom error; an open switch still couples a little (c_off_rel of that bit's capacitance). Area: the capacitors
+    # plus 8 SRAM bits and 8 switches per cell (about twice the fixed cell).
+    "cap_bank": dict(area=None, g_max=(0.0, math.inf), on_off=math.inf, levels=0, prog_abs=0.0, prog_rel=None,
+                     read_rel=0.001, nu=0.0, nu_std=0.0, v0=None, v_max=1.0, stuck=0.0, tc_std=3e-5, ac=True, bank=True,
+                     c_off_rel=0.005, bank_area_extra=5.0),
     "cap_ac":   dict(area=None, g_max=(0.0, math.inf), on_off=math.inf, levels=256, prog_abs=0.0, prog_rel=None,
                      read_rel=0.001, nu=0.0, nu_std=0.0, v0=None, v_max=1.0, stuck=0.0, tc_std=3e-5, ac=True),
 }
@@ -86,6 +93,9 @@ class Chip:
     mem_dac_bits: int = 12      # DAC out of the digital memory (the read-out needs more precision)
     mem_adc_skip: str = ""      # ablation: converter groups left out: qkv, gates, y, attn_in, attn_out
     mem_adc_per_head: bool = True   # one ADC range per head (128 channels) for q/k/v into the DeltaNet memory
+    shared_array: bool = False  # layer-multiplexed engine: every layer runs on the same physical grids (same errors)
+    pv_calibrate: bool = False  # program-and-verify (cap_bank): pick, per weight, the switch code closest to the target
+    pv_window: int = 2          #   using the chip's measured bit-capacitor errors; codes searched: target +- window
     ckpt_every: int = 0         # re-digitise the residual stream every k layers (0 = never)
     fs_pct: float = 99.99       # percentile of calibrated |signal| that maps to the rails
     offset_trim: float = 0.1    # residual offset after auto-zero / trim (1 = untrimmed); costs power
@@ -173,7 +183,9 @@ class Chip:
 
     def cell_area_um2(self):
         a = self.dev()["area"]
-        return a if a is not None else self.c_cell / self.cap_density + 0.3
+        if a is not None:
+            return a
+        return self.c_cell / self.cap_density + 0.3 + self.dev().get("bank_area_extra", 0.0)
 
     def prog_rel(self):
         """Programming error relative to a FULL cell. For capacitors (Pelgrom, sigma_C = 0.4 % * sqrt(1 fF * C))
@@ -244,6 +256,89 @@ def split_keys(key, n):
     return list(mx.random.split(key, n))
 
 
+def bank_cells(target, chip, key, rows_per_chunk=None):
+    """Real capacitance (fraction of a full cell) of switched capacitor banks programmed to `target` (0..1).
+
+    Each cell has 8 binary-weighted capacitors of 2^b unit capacitors; capacitor b has a fixed relative error
+    eps_b ~ N(0, sigma_unit / sqrt(2^b)) (Pelgrom). An open switch still adds c_off_rel * 2^b. The code is
+    round(target * 255). Program-and-verify works on the C+ / C- pair (bank_pair), not on one side."""
+    d = chip.dev()
+    rows, cols = target.shape
+    L = 255
+    c_unit = chip.c_cell / L
+    sig_unit = 0.004 * math.sqrt(1e-15 / c_unit) if chip.on("prog") else 0.0
+    sig_b = mx.array([sig_unit / math.sqrt(2 ** b) for b in range(8)])[:, None, None]
+    w_b = mx.array([float(2 ** b) for b in range(8)])[:, None, None]
+    shifts = mx.arange(8)[:, None, None]
+    c_off = d["c_off_rel"] if chip.on("prog") else 0.0
+    rpc = rows_per_chunk or max(1, (1 << 24) // (8 * cols))
+    starts = list(range(0, rows, rpc))
+    chunk_keys = mx.random.split(key, max(len(starts), 2))
+    out = []
+    for c, r0 in enumerate(starts):
+        t = target[r0:r0 + rpc] * L
+        eps = sig_b * mx.random.normal((8,) + t.shape, key=chunk_keys[c]) if sig_unit else 0.0
+
+        def value(code):
+            bits = ((code[None] >> shifts) & 1).astype(mx.float32)
+            return (bits * w_b * (1 + eps) + (1 - bits) * w_b * c_off).sum(axis=0)
+        code = mx.clip(mx.round(t), 0, L).astype(mx.int32)
+        val = value(code)
+        mx.eval(val)
+        out.append(val / L)
+    return mx.concatenate(out, axis=0)
+
+
+def bank_pair(u, chip, key_p, key_n):
+    """Real capacitances (fractions of a full cell) of the C+ / C- bank pair that stores signed weights u (-1..1).
+
+    Program-and-verify calibrates what the circuit uses, the difference C+ - C-: on the side that carries the weight,
+    the code within +-pv_window is chosen whose measured value, minus the measured value of the other side (an all-open
+    bank still couples c_off_rel of every bit), is closest to the target."""
+    plain = chip.pv_calibrate
+    if not plain:
+        return bank_cells(mx.maximum(u, 0), chip, key_p), bank_cells(mx.maximum(-u, 0), chip, key_n)
+    d = chip.dev()
+    rows, cols = u.shape
+    L = 255
+    sig_unit = 0.004 * math.sqrt(1e-15 / (chip.c_cell / L)) if chip.on("prog") else 0.0
+    sig_b = mx.array([sig_unit / math.sqrt(2 ** b) for b in range(8)])[:, None, None]
+    w_b = mx.array([float(2 ** b) for b in range(8)])[:, None, None]
+    shifts = mx.arange(8)[:, None, None]
+    c_off = d["c_off_rel"] if chip.on("prog") else 0.0
+    rpc = max(1, (1 << 23) // (8 * cols))
+    starts = list(range(0, rows, rpc))
+    kp, kn = mx.random.split(key_p, max(len(starts), 2)), mx.random.split(key_n, max(len(starts), 2))
+    out_p, out_n = [], []
+    for c, r0 in enumerate(starts):
+        uu = u[r0:r0 + rpc] * L
+        eps_p = sig_b * mx.random.normal((8,) + uu.shape, key=kp[c]) if sig_unit else 0.0
+        eps_n = sig_b * mx.random.normal((8,) + uu.shape, key=kn[c]) if sig_unit else 0.0
+
+        def value(code, eps):
+            bits = ((code[None] >> shifts) & 1).astype(mx.float32)
+            return (bits * w_b * (1 + eps) + (1 - bits) * w_b * c_off).sum(axis=0)
+        cp = mx.clip(mx.round(mx.maximum(uu, 0)), 0, L).astype(mx.int32)
+        cn = mx.clip(mx.round(mx.maximum(-uu, 0)), 0, L).astype(mx.int32)
+        vp, vn = value(cp, eps_p), value(cn, eps_n)
+        pos = uu >= 0
+        best = mx.abs(vp - vn - uu)
+        for delta in range(-chip.pv_window, chip.pv_window + 1):
+            if delta == 0:
+                continue
+            cand_p = mx.clip(cp + delta, 0, L).astype(mx.int32)       # adjust the side that carries the weight
+            cand_n = mx.clip(cn + delta, 0, L).astype(mx.int32)
+            vp2 = mx.where(pos, value(cand_p, eps_p), vp)
+            vn2 = mx.where(pos, vn, value(cand_n, eps_n))
+            err = mx.abs(vp2 - vn2 - uu)
+            better = err < best
+            vp, vn, best = mx.where(better, vp2, vp), mx.where(better, vn2, vn), mx.where(better, err, best)
+        mx.eval(vp, vn)
+        out_p.append(vp / L)
+        out_n.append(vn / L)
+    return mx.concatenate(out_p, axis=0), mx.concatenate(out_n, axis=0)
+
+
 class Crossbar:
     """A weight matrix W (out, in) mapped onto differential conductance pairs.
 
@@ -275,6 +370,10 @@ class Crossbar:
             step = dg / (d["levels"] - 1)
             gp = g_min + mx.round((gp - g_min) / step) * step
             gn = g_min + mx.round((gn - g_min) / step) * step
+        bank = d.get("bank", False)
+        if bank:                                          # switched capacitor bank: codes -> real capacitances
+            vp_, vn_ = bank_pair(u, chip, k[0], k[1])
+            gp, gn = vp_ * g_max, vn_ * g_max
 
         def program(g, kk):
             k1, k2, k3, k4, k5 = split_keys(kk, 5)
@@ -298,7 +397,8 @@ class Crossbar:
                 g = g * (1 + d["tc_std"] * abs(dt) * mx.random.normal(g.shape, key=k5))
             return g
 
-        gp, gn = program(gp, k[0]), program(gn, k[1])
+        if not bank:
+            gp, gn = program(gp, k[0]), program(gn, k[1])
         ac = chip.is_ac()
         if ac and chip.on("prog"):          # stray crossing capacitance: cancels in the pair except mismatch
             y_par = 2 * math.pi * chip.ac_freq * chip.c_par

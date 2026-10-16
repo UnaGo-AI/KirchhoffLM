@@ -1,0 +1,380 @@
+{
+ "Qwen3.5-0.8B": {
+  "stationary": {
+   "tokens_per_s_user": 37202.380952380954,
+   "tokens_per_s_total": 7142857.142857143,
+   "uJ_per_token": 14.606399999999999,
+   "area_mm2": 7971.200000000001
+  },
+  "multiplexed": [
+   {
+    "store": "on-chip SRAM",
+    "batch": 1,
+    "t_load_us": 10.75,
+    "t_comp_us": 1.12,
+    "tokens_per_s_total": 3875.969,
+    "tokens_per_s_user": 3875.969,
+    "uJ_per_token": 97.1664,
+    "area_mm2": 3913.36,
+    "reload_share": 0.8497
+   },
+   {
+    "store": "on-chip SRAM",
+    "batch": 16,
+    "t_load_us": 10.75,
+    "t_comp_us": 3.22,
+    "tokens_per_s_total": 62015.5039,
+    "tokens_per_s_user": 3875.969,
+    "uJ_per_token": 19.7664,
+    "area_mm2": 3913.36,
+    "reload_share": 0.261
+   },
+   {
+    "store": "on-chip SRAM",
+    "batch": 128,
+    "t_load_us": 10.75,
+    "t_comp_us": 18.9,
+    "tokens_per_s_total": 282186.9489,
+    "tokens_per_s_user": 2204.5855,
+    "uJ_per_token": 15.2514,
+    "area_mm2": 3913.36,
+    "reload_share": 0.0423
+   },
+   {
+    "store": "on-chip SRAM",
+    "batch": 1024,
+    "t_load_us": 10.75,
+    "t_comp_us": 144.34,
+    "tokens_per_s_total": 295598.3557,
+    "tokens_per_s_user": 288.6703,
+    "uJ_per_token": 14.687,
+    "area_mm2": 3913.36,
+    "reload_share": 0.0055
+   },
+   {
+    "store": "3D-stacked SRAM",
+    "batch": 1,
+    "t_load_us": 5.375,
+    "t_comp_us": 1.12,
+    "tokens_per_s_total": 7751.938,
+    "tokens_per_s_user": 7751.938,
+    "uJ_per_token": 1294.2864,
+    "area_mm2": 3552.4,
+    "reload_share": 0.9887
+   },
+   {
+    "store": "3D-stacked SRAM",
+    "batch": 16,
+    "t_load_us": 5.375,
+    "t_comp_us": 3.22,
+    "tokens_per_s_total": 124031.0078,
+    "tokens_per_s_user": 7751.938,
+    "uJ_per_token": 94.5864,
+    "area_mm2": 3552.4,
+    "reload_share": 0.8456
+   },
+   {
+    "store": "3D-stacked SRAM",
+    "batch": 128,
+    "t_load_us": 5.375,
+    "t_comp_us": 18.9,
+    "tokens_per_s_total": 282186.9489,
+    "tokens_per_s_user": 2204.5855,
+    "uJ_per_token": 24.6039,
+    "area_mm2": 3552.4,
+    "reload_share": 0.4063
+   },
+   {
+    "store": "3D-stacked SRAM",
+    "batch": 1024,
+    "t_load_us": 5.375,
+    "t_comp_us": 144.34,
+    "tokens_per_s_total": 295598.3557,
+    "tokens_per_s_user": 288.6703,
+    "uJ_per_token": 15.8561,
+    "area_mm2": 3552.4,
+    "reload_share": 0.0788
+   },
+   {
+    "store": "HBM",
+    "batch": 1,
+    "t_load_us": 21.5,
+    "t_comp_us": 1.12,
+    "tokens_per_s_total": 1937.9845,
+    "tokens_per_s_user": 1937.9845,
+    "uJ_per_token": 33079.8864,
+    "area_mm2": 3552.4,
+    "reload_share": 0.9996
+   },
+   {
+    "store": "HBM",
+    "batch": 16,
+    "t_load_us": 21.5,
+    "t_comp_us": 3.22,
+    "tokens_per_s_total": 31007.7519,
+    "tokens_per_s_user": 1937.9845,
+    "uJ_per_token": 2081.1864,
+    "area_mm2": 3552.4,
+    "reload_share": 0.993
+   },
+   {
+    "store": "HBM",
+    "batch": 128,
+    "t_load_us": 21.5,
+    "t_comp_us": 18.9,
+    "tokens_per_s_total": 248062.0155,
+    "tokens_per_s_user": 1937.9845,
+    "uJ_per_token": 272.9289,
+    "area_mm2": 3552.4,
+    "reload_share": 0.9465
+   },
+   {
+    "store": "HBM",
+    "batch": 1024,
+    "t_load_us": 21.5,
+    "t_comp_us": 144.34,
+    "tokens_per_s_total": 295598.3557,
+    "tokens_per_s_user": 288.6703,
+    "uJ_per_token": 46.8967,
+    "area_mm2": 3552.4,
+    "reload_share": 0.6885
+   },
+   {
+    "store": "DDR",
+    "batch": 1,
+    "t_load_us": 215.0,
+    "t_comp_us": 1.12,
+    "tokens_per_s_total": 193.7984,
+    "tokens_per_s_user": 193.7984,
+    "uJ_per_token": 123895.8864,
+    "area_mm2": 3552.4,
+    "reload_share": 0.9999
+   },
+   {
+    "store": "DDR",
+    "batch": 16,
+    "t_load_us": 215.0,
+    "t_comp_us": 3.22,
+    "tokens_per_s_total": 3100.7752,
+    "tokens_per_s_user": 193.7984,
+    "uJ_per_token": 7757.1864,
+    "area_mm2": 3552.4,
+    "reload_share": 0.9981
+   },
+   {
+    "store": "DDR",
+    "batch": 128,
+    "t_load_us": 215.0,
+    "t_comp_us": 18.9,
+    "tokens_per_s_total": 24806.2016,
+    "tokens_per_s_user": 193.7984,
+    "uJ_per_token": 982.4289,
+    "area_mm2": 3552.4,
+    "reload_share": 0.9851
+   },
+   {
+    "store": "DDR",
+    "batch": 1024,
+    "t_load_us": 215.0,
+    "t_comp_us": 144.34,
+    "tokens_per_s_total": 198449.6124,
+    "tokens_per_s_user": 193.7984,
+    "uJ_per_token": 135.5842,
+    "area_mm2": 3552.4,
+    "reload_share": 0.8923
+   }
+  ],
+  "stored_weights": 752000000.0,
+  "loaded_per_layer": 21500000.0,
+  "layers": 24
+ },
+ "1T MoE (32B active)": {
+  "stationary": {
+   "tokens_per_s_user": 14637.002341920372,
+   "tokens_per_s_total": 7142857.142857143,
+   "uJ_per_token": 49.4,
+   "area_mm2": 10600000.0
+  },
+  "multiplexed": [
+   {
+    "store": "on-chip SRAM",
+    "batch": 1,
+    "t_load_us": 262.2951,
+    "t_comp_us": 1.12,
+    "tokens_per_s_total": 62.5,
+    "tokens_per_s_user": 62.5,
+    "uJ_per_token": 5169.4,
+    "area_mm2": 511583.6066,
+    "reload_share": 0.9904
+   },
+   {
+    "store": "on-chip SRAM",
+    "batch": 16,
+    "t_load_us": 262.2951,
+    "t_comp_us": 3.22,
+    "tokens_per_s_total": 1000.0,
+    "tokens_per_s_user": 62.5,
+    "uJ_per_token": 369.4,
+    "area_mm2": 511583.6066,
+    "reload_share": 0.8663
+   },
+   {
+    "store": "on-chip SRAM",
+    "batch": 128,
+    "t_load_us": 262.2951,
+    "t_comp_us": 18.9,
+    "tokens_per_s_total": 8000.0,
+    "tokens_per_s_user": 62.5,
+    "uJ_per_token": 89.4,
+    "area_mm2": 511583.6066,
+    "reload_share": 0.4474
+   },
+   {
+    "store": "on-chip SRAM",
+    "batch": 1024,
+    "t_load_us": 262.2951,
+    "t_comp_us": 144.34,
+    "tokens_per_s_total": 64000.0,
+    "tokens_per_s_user": 62.5,
+    "uJ_per_token": 54.4,
+    "area_mm2": 511583.6066,
+    "reload_share": 0.0919
+   },
+   {
+    "store": "3D-stacked SRAM",
+    "batch": 1,
+    "t_load_us": 131.1475,
+    "t_comp_us": 1.12,
+    "tokens_per_s_total": 125.0,
+    "tokens_per_s_user": 125.0,
+    "uJ_per_token": 79409.4,
+    "area_mm2": 31583.6066,
+    "reload_share": 0.9994
+   },
+   {
+    "store": "3D-stacked SRAM",
+    "batch": 16,
+    "t_load_us": 131.1475,
+    "t_comp_us": 3.22,
+    "tokens_per_s_total": 2000.0,
+    "tokens_per_s_user": 125.0,
+    "uJ_per_token": 5009.4,
+    "area_mm2": 31583.6066,
+    "reload_share": 0.9901
+   },
+   {
+    "store": "3D-stacked SRAM",
+    "batch": 128,
+    "t_load_us": 131.1475,
+    "t_comp_us": 18.9,
+    "tokens_per_s_total": 16000.0,
+    "tokens_per_s_user": 125.0,
+    "uJ_per_token": 669.4,
+    "area_mm2": 31583.6066,
+    "reload_share": 0.9262
+   },
+   {
+    "store": "3D-stacked SRAM",
+    "batch": 1024,
+    "t_load_us": 131.1475,
+    "t_comp_us": 144.34,
+    "tokens_per_s_total": 116300.9924,
+    "tokens_per_s_user": 113.5752,
+    "uJ_per_token": 126.9,
+    "area_mm2": 31583.6066,
+    "reload_share": 0.6107
+   },
+   {
+    "store": "HBM",
+    "batch": 1,
+    "t_load_us": 524.5902,
+    "t_comp_us": 1.12,
+    "tokens_per_s_total": 31.25,
+    "tokens_per_s_user": 31.25,
+    "uJ_per_token": 2050609.4,
+    "area_mm2": 31583.6066,
+    "reload_share": 1.0
+   },
+   {
+    "store": "HBM",
+    "batch": 16,
+    "t_load_us": 524.5902,
+    "t_comp_us": 3.22,
+    "tokens_per_s_total": 500.0,
+    "tokens_per_s_user": 31.25,
+    "uJ_per_token": 128209.4,
+    "area_mm2": 31583.6066,
+    "reload_share": 0.9996
+   },
+   {
+    "store": "HBM",
+    "batch": 128,
+    "t_load_us": 524.5902,
+    "t_comp_us": 18.9,
+    "tokens_per_s_total": 4000.0,
+    "tokens_per_s_user": 31.25,
+    "uJ_per_token": 16069.4,
+    "area_mm2": 31583.6066,
+    "reload_share": 0.9969
+   },
+   {
+    "store": "HBM",
+    "batch": 1024,
+    "t_load_us": 524.5902,
+    "t_comp_us": 144.34,
+    "tokens_per_s_total": 32000.0,
+    "tokens_per_s_user": 31.25,
+    "uJ_per_token": 2051.9,
+    "area_mm2": 31583.6066,
+    "reload_share": 0.9759
+   },
+   {
+    "store": "DDR",
+    "batch": 1,
+    "t_load_us": 5245.9016,
+    "t_comp_us": 1.12,
+    "tokens_per_s_total": 3.125,
+    "tokens_per_s_user": 3.125,
+    "uJ_per_token": 7682609.4,
+    "area_mm2": 31583.6066,
+    "reload_share": 1.0
+   },
+   {
+    "store": "DDR",
+    "batch": 16,
+    "t_load_us": 5245.9016,
+    "t_comp_us": 3.22,
+    "tokens_per_s_total": 50.0,
+    "tokens_per_s_user": 3.125,
+    "uJ_per_token": 480209.4,
+    "area_mm2": 31583.6066,
+    "reload_share": 0.9999
+   },
+   {
+    "store": "DDR",
+    "batch": 128,
+    "t_load_us": 5245.9016,
+    "t_comp_us": 18.9,
+    "tokens_per_s_total": 400.0,
+    "tokens_per_s_user": 3.125,
+    "uJ_per_token": 60069.4,
+    "area_mm2": 31583.6066,
+    "reload_share": 0.9992
+   },
+   {
+    "store": "DDR",
+    "batch": 1024,
+    "t_load_us": 5245.9016,
+    "t_comp_us": 144.34,
+    "tokens_per_s_total": 3200.0,
+    "tokens_per_s_user": 3.125,
+    "uJ_per_token": 7551.9,
+    "area_mm2": 31583.6066,
+    "reload_share": 0.9935
+   }
+  ],
+  "stored_weights": 1000000000000.0,
+  "loaded_per_layer": 524590163.93442625,
+  "layers": 61
+ }
+}

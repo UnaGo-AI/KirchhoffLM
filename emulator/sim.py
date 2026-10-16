@@ -75,7 +75,13 @@ class AnalogQwen:
         keys = iter(split_keys(key, 4096))
         F = lambda name: fs(calib, name, pct) if calib else 1.0
         self.F = F
-        self.xb = lambda w, i, o, c=chip: Crossbar(w, c, F(i), F(o), next(keys), name=i)
+        def xb(w, i, o, c=chip):
+            k = next(keys)
+            if c.shared_array:                            # same physical grid for this role in every layer
+                role = o.split(".", 1)[-1]
+                k = mx.random.key(c.seed * 1000003 + zlib.crc32(role.encode()) % 1000003)
+            return Crossbar(w, c, F(i), F(o), k, name=i)
+        self.xb = xb
         self.n_layers = len(m.layers)
         # shared embedding / output grid
         E = m.embed_tokens.weight
