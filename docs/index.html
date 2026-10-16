@@ -1,0 +1,49 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview · KirchhoffLM</title>
+<meta name="description" content="KirchhoffLM: a 0.8B-parameter language model translated into analog capacitor-grid hardware and run in an emulator.">
+<style>
+:root { --body-text-color:#1f1f1d; --body-text-color-subdued:#66655f; --border-color-primary:#d9d7cf; --bg:#fbfaf7;
+        --accent:#D85A30; --font: system-ui, -apple-system, "Segoe UI", sans-serif; --font-mono: ui-monospace, Menlo, monospace; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --body-text-color:#e9e7e0; --body-text-color-subdued:#a9a79f;
+        --border-color-primary:#3d3d3a; --bg:#1b1b19; color-scheme: dark; } }
+:root[data-theme="dark"] { --body-text-color:#e9e7e0; --body-text-color-subdued:#a9a79f; --border-color-primary:#3d3d3a; --bg:#1b1b19; color-scheme: dark; }
+body { margin:0; background:var(--bg); color:var(--body-text-color); font-family:var(--font); }
+header { border-bottom:1px solid var(--border-color-primary); padding:14px 16px; }
+header .wrap, main { max-width:1100px; margin:0 auto; }
+header a.brand { font-weight:600; font-size:18px; color:var(--body-text-color); text-decoration:none; margin-right:18px; }
+nav { display:inline-flex; flex-wrap:wrap; gap:4px 14px; }
+nav a { color:var(--body-text-color-subdued); text-decoration:none; font-size:15px; }
+nav a.on { color:var(--accent); }
+main { padding:8px 16px 60px; }
+main table { display:block; overflow-x:auto; max-width:100%; }
+a { color:var(--accent); }
+footer { max-width:1100px; margin:0 auto; padding:20px 16px 40px; color:var(--body-text-color-subdued); font-size:13px; }
+</style></head><body>
+<header><div class="wrap"><a class="brand" href="index.html">KirchhoffLM</a><nav><a href="index.html" class=on>Overview</a><a href="how-it-works.html">How it works</a><a href="chip-design.html">Chip design</a><a href="signal-journey.html">Signal journey</a><a href="assumptions.html">Assumptions</a><a href="results.html">Results</a></nav></div></header>
+<main>
+<style>
+.hwdoc { line-height: 1.6; max-width: 1100px; }
+.hwdoc h2 { margin-top: 1.4em; }
+.hwdoc table { border-collapse: collapse; margin: 0.6em 0 1.2em; font-size: 0.92em; }
+.hwdoc th, .hwdoc td { border: 1px solid var(--border-color-primary); padding: 4px 10px; text-align: left; vertical-align: top; }
+.hwdoc .note { color: var(--body-text-color-subdued); font-size: 0.9em; }
+.hwdoc svg text { fill: var(--body-text-color); font-family: var(--font); }
+.hwdoc .legend span { display: inline-block; margin-right: 18px; }
+.hwdoc .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+</style>
+<div class="hwdoc">
+<h1>KirchhoffLM</h1>
+<p style="font-size:1.15em">A modern language model, <b>Qwen3.5-0.8B</b>, translated into an <b>analog chip design</b>: every weight is a pair
+of capacitors, every matrix product is done by currents adding up on wires (Kirchhoff's law), and the whole model runs through a
+physics emulator of 24 layer chips.</p>
+<table><tr><th></th><th></th></tr><tr><td>Quality on emulated chips</td><td>+2.2 – 2.5 % bits/byte vs the original model (0.758 / 0.756 vs 0.740)</td></tr><tr><td>Long context</td><td>20 / 20 recall of a fact hidden in ~980 tokens (same as the exact model)</td></tr><tr><td>Emulated speed</td><td>~37,000 tokens/s for one user (~27 µs per token)</td></tr><tr><td>Emulated energy</td><td>~5–15 µJ per token (estimate; ~97 % is the digital memory)</td></tr><tr><td>Hardware</td><td>746,896,975 capacitors · 648,256 amplifiers · ~8,003 mm² over 25 chips</td></tr><tr><td>Weight cell</td><td>AC capacitor grid, up to 10 fF in 255 unit steps, 100 MHz carrier</td></tr></table>
+<h2>Start here</h2>
+<ul><li><a href="signal-journey.html">Signal journey</a> — follow one word through the chips, explained for a school student.</li>
+<li><a href="chip-design.html">Chip design</a> — diagrams and every element of the chip.</li>
+<li><a href="how-it-works.html">How it works</a> and <a href="assumptions.html">Assumptions</a> — what the emulator models and what it does not.</li>
+<li><a href="results.html">Results</a> — quality, error budget, per-layer sensitivity, circuit checks.</li></ul>
+<p class="note">A simulation study by UnaGo. No chip has been built; device values are literature-range assumptions and real silicon
+usually lands well below simulated efficiency. Related but different: KirchhoffNet (MIT/CMU, 2023) builds new continuous-time networks
+from circuits; KirchhoffLM maps an existing LLM onto realistic hardware and models its errors.</p></div></main>
+<footer>KirchhoffLM by UnaGo · simulation study, not a fabricated chip · device values are literature-range assumptions ·
+<a href="https://github.com/UnaGo-AI/KirchhoffLM">source on GitHub</a></footer></body></html>

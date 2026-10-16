@@ -1,0 +1,29 @@
+{
+ "digital": {
+  "ideal": 2.2000440895557403,
+  "chip0": 2.203632253408432,
+  "chip1": 2.2042933642864226,
+  "chip2": 2.2039154529571534,
+  "chip3": 2.2040457904338835,
+  "chip4": 2.2037972629070284,
+  "sample_chip0": "Once upon a time, there was a little girl named Lily. One day, Lily's mom gave her a big hug to make her feel better. \n\nLily's mom came to her room and said, \"Lily, Mommy, it's not nice to take a nap.\" Lily was sad, but her mom said, \"I'm proud of you, Lily. You always have a good nap.\"Once upon a time, there was a little boy named Timmy. Timmy loved to draw pictures of other animals. One day, he was playing with his crayons when he saw a little boy named Tim. Tim had"
+ },
+ "chip": {
+  "ideal": 3.0966588079929354,
+  "chip0": 2.6374902963638305,
+  "chip1": 2.6405918657779694,
+  "chip2": 2.638559341430664,
+  "chip3": 2.6367988705635073,
+  "chip4": 2.6369218707084654,
+  "sample_chip0": "Once upon a time, there was a little boy named Timmy. Timmy was very cute because he really loved to play with his toys. One day, Timmy took his toy car on the floor and started to feel sad. He didn't want to play with it, so he started to cry.\n\nTimmy's mommy told him that it was okay to take a break and take a little bit. Timmy remembered what his mommy said, \"Timmy, that's my toy. He's important playtime and do something else's important. Now, Timmy's big brother and Timmy became best to play with Timmy's toys."
+ },
+ "robust": {
+  "ideal": 3.126805621385574,
+  "chip0": 2.6576045870780947,
+  "chip1": 2.6607108771800996,
+  "chip2": 2.658951020240784,
+  "chip3": 2.6567647576332094,
+  "chip4": 2.6590711951255797,
+  "sample_chip0": "Once upon a time, there were a little boy named Tim. He loved to eat toast. One day, he went for a walk in the park near his home.\n\nAs Tim was walking, he saw a big, beautiful house. He saw a little girl and said, \"Hi, Tim. What are you?\" Tim said, \"I have a little girl named Amy.\" The girl smiled and nodded. They played together all day, and soon the sun was rain, they loved to bounce on the ground.\n\nWhen Tim was over, the rain started his favorite meal. He tried to pull it"
+ }
+}

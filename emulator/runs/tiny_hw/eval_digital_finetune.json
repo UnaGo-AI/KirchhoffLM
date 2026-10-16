@@ -1,0 +1,20 @@
+{
+ "digital": {
+  "ideal": 2.2000440895557403,
+  "chip0": 2.2036235213279722,
+  "chip1": 2.2042512774467466,
+  "chip2": 2.2038205683231356,
+  "chip3": 2.203957146406174,
+  "chip4": 2.203724408149719,
+  "sample_chip0": "Once upon a time, there was a little girl named Lily. One day, Lily's mom gave her a big hug to make her feel better. \n\nLily went to her mom and said, \"Mom, can I have a big hug?\" Her mom said, \"Of course, Lily. Let's go for a walk and see if we can see the world.\" \n\nLily and her mom explored the world together. They ran and jumped, until it was time to go home. When it was dark, Lily's mom came out and said, \"That's amazing! Now it's time for bed.\""
+ },
+ "finetune": {
+  "ideal": 2.3240619122982027,
+  "chip0": 2.3221194207668305,
+  "chip1": 2.327508246898651,
+  "chip2": 2.3248090207576753,
+  "chip3": 2.3257301270961763,
+  "chip4": 2.3266804575920106,
+  "sample_chip0": "Once upon a time, there was a little boy named Timmy. He loved to play outside with his friends. One day, Timmy's friend Billy came home. Billy wanted to play too.\n\nTimmy said, \"Let's play a game with you, Billy. I can make some yummy food for you.\" Timmy was happy that Billy did not listen and said, \"Thank you, Billy. You saved my important job.\"\n\nTimmy was so happy to have this idea to play with. They both had a great time playing together. They played all day long, even though they were very smart, they didn"
+ }
+}

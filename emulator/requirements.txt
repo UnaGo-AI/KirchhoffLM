@@ -1,0 +1,10 @@
+mlx>=0.32
+mlx-lm>=0.32
+numpy
+scipy
+gradio>=6.0
+gradio_client
+tokenizers
+huggingface_hub
+pyarrow
+transformers

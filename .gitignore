@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.DS_Store
+emulator/hw_qwen35/
+emulator/eval_texts.json
+emulator/data/
+emulator/runs/tiny_hw/*.safetensors
+emulator/logs_*.txt

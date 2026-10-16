@@ -1,0 +1,66 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works · KirchhoffLM</title>
+<meta name="description" content="KirchhoffLM: a 0.8B-parameter language model translated into analog capacitor-grid hardware and run in an emulator.">
+<style>
+:root { --body-text-color:#1f1f1d; --body-text-color-subdued:#66655f; --border-color-primary:#d9d7cf; --bg:#fbfaf7;
+        --accent:#D85A30; --font: system-ui, -apple-system, "Segoe UI", sans-serif; --font-mono: ui-monospace, Menlo, monospace; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --body-text-color:#e9e7e0; --body-text-color-subdued:#a9a79f;
+        --border-color-primary:#3d3d3a; --bg:#1b1b19; color-scheme: dark; } }
+:root[data-theme="dark"] { --body-text-color:#e9e7e0; --body-text-color-subdued:#a9a79f; --border-color-primary:#3d3d3a; --bg:#1b1b19; color-scheme: dark; }
+body { margin:0; background:var(--bg); color:var(--body-text-color); font-family:var(--font); }
+header { border-bottom:1px solid var(--border-color-primary); padding:14px 16px; }
+header .wrap, main { max-width:1100px; margin:0 auto; }
+header a.brand { font-weight:600; font-size:18px; color:var(--body-text-color); text-decoration:none; margin-right:18px; }
+nav { display:inline-flex; flex-wrap:wrap; gap:4px 14px; }
+nav a { color:var(--body-text-color-subdued); text-decoration:none; font-size:15px; }
+nav a.on { color:var(--accent); }
+main { padding:8px 16px 60px; }
+main table { display:block; overflow-x:auto; max-width:100%; }
+a { color:var(--accent); }
+footer { max-width:1100px; margin:0 auto; padding:20px 16px 40px; color:var(--body-text-color-subdued); font-size:13px; }
+</style></head><body>
+<header><div class="wrap"><a class="brand" href="index.html">KirchhoffLM</a><nav><a href="index.html">Overview</a><a href="how-it-works.html" class=on>How it works</a><a href="chip-design.html">Chip design</a><a href="signal-journey.html">Signal journey</a><a href="assumptions.html">Assumptions</a><a href="results.html">Results</a></nav></div></header>
+<main>
+<style>
+.hwdoc { line-height: 1.6; max-width: 1100px; }
+.hwdoc h2 { margin-top: 1.4em; }
+.hwdoc table { border-collapse: collapse; margin: 0.6em 0 1.2em; font-size: 0.92em; }
+.hwdoc th, .hwdoc td { border: 1px solid var(--border-color-primary); padding: 4px 10px; text-align: left; vertical-align: top; }
+.hwdoc .note { color: var(--body-text-color-subdued); font-size: 0.9em; }
+.hwdoc svg text { fill: var(--body-text-color); font-family: var(--font); }
+.hwdoc .legend span { display: inline-block; margin-right: 18px; }
+.hwdoc .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+</style>
+<div class="hwdoc">
+<h2>What you are talking to</h2>
+<p>The chat model is <b>Qwen3.5-0.8B</b>, translated into a <b>hardware design</b>: every weight became a pair of capacitors
+(counted in unit capacitors), every read-out amplifier got a feedback-resistor value, every norm a set of gain resistors.
+The website loads only that design package — 746,896,975 capacitors made of 30,616,073,459 unit capacitors,
+648,256 amplifiers — and runs it through an <b>emulator of the chips</b>.</p>
+<h2>What the emulator does for every token</h2>
+<ol>
+<li><b>Weight grids.</b> The input vector becomes sine-wave voltages on the rows of each capacitor grid. The column currents add up by
+Kirchhoff's law, which <i>is</i> the matrix–vector product. The emulator computes the same sum, then applies the physics:
+capacitor mismatch, stray capacitance, wire phase delay (after calibration), amplifier gain/offset error and noise, and clipping at the rails.</li>
+<li><b>Analog circuits.</b> Norm units, SiLU/sigmoid transistor stages and Gilbert-cell multipliers get their own mismatch, offsets and limits.</li>
+<li><b>Digital parts.</b> The memory of earlier tokens (DeltaNet state, attention KV cache) is digital SRAM; ADCs and DACs at its boundary
+round the values. Chips talk through 10-bit digital links.</li>
+<li><b>Incremental operation.</b> Like the real chips, each layer chip keeps its state between tokens; every new token makes one pass
+through the 24 chips.</li>
+<li><b>Manufacturing.</b> The "chip number" selects one random draw of the fixed manufacturing errors — different numbers are different
+physical chips with the same design.</li>
+</ol>
+<h2>Two kinds of time</h2>
+<p>The processing log shows both. <b>Emulator time</b> is how long the Mac takes to simulate the physics (~30 tokens/s).
+<b>Emulated hardware time</b> is how long the real chips would take according to the circuit timing model (~37,000 tokens/s,
+~1.1 µs per chip per token). The emulator is slower than the hardware it emulates.</p>
+<h2>How the emulator was checked</h2>
+<ul>
+<li>With all physics off it reproduces the digital model exactly (logit difference ~5×10⁻⁵).</li>
+<li>Incremental mode equals full recompute (exactly with physics off, statistically with physics on).</li>
+<li>The fast weight-grid model was checked against an exact circuit solve of real 128×128 tiles (every wire segment, cell and stray
+capacitor as a node, solved like SPICE for linear circuits) — the AC design agrees within ~0.3 % per tile.</li>
+</ul>
+</div></main>
+<footer>KirchhoffLM by UnaGo · simulation study, not a fabricated chip · device values are literature-range assumptions ·
+<a href="https://github.com/UnaGo-AI/KirchhoffLM">source on GitHub</a></footer></body></html>

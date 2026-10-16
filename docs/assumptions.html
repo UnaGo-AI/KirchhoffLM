@@ -1,0 +1,51 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assumptions · KirchhoffLM</title>
+<meta name="description" content="KirchhoffLM: a 0.8B-parameter language model translated into analog capacitor-grid hardware and run in an emulator.">
+<style>
+:root { --body-text-color:#1f1f1d; --body-text-color-subdued:#66655f; --border-color-primary:#d9d7cf; --bg:#fbfaf7;
+        --accent:#D85A30; --font: system-ui, -apple-system, "Segoe UI", sans-serif; --font-mono: ui-monospace, Menlo, monospace; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --body-text-color:#e9e7e0; --body-text-color-subdued:#a9a79f;
+        --border-color-primary:#3d3d3a; --bg:#1b1b19; color-scheme: dark; } }
+:root[data-theme="dark"] { --body-text-color:#e9e7e0; --body-text-color-subdued:#a9a79f; --border-color-primary:#3d3d3a; --bg:#1b1b19; color-scheme: dark; }
+body { margin:0; background:var(--bg); color:var(--body-text-color); font-family:var(--font); }
+header { border-bottom:1px solid var(--border-color-primary); padding:14px 16px; }
+header .wrap, main { max-width:1100px; margin:0 auto; }
+header a.brand { font-weight:600; font-size:18px; color:var(--body-text-color); text-decoration:none; margin-right:18px; }
+nav { display:inline-flex; flex-wrap:wrap; gap:4px 14px; }
+nav a { color:var(--body-text-color-subdued); text-decoration:none; font-size:15px; }
+nav a.on { color:var(--accent); }
+main { padding:8px 16px 60px; }
+main table { display:block; overflow-x:auto; max-width:100%; }
+a { color:var(--accent); }
+footer { max-width:1100px; margin:0 auto; padding:20px 16px 40px; color:var(--body-text-color-subdued); font-size:13px; }
+</style></head><body>
+<header><div class="wrap"><a class="brand" href="index.html">KirchhoffLM</a><nav><a href="index.html">Overview</a><a href="how-it-works.html">How it works</a><a href="chip-design.html">Chip design</a><a href="signal-journey.html">Signal journey</a><a href="assumptions.html" class=on>Assumptions</a><a href="results.html">Results</a></nav></div></header>
+<main>
+<style>
+.hwdoc { line-height: 1.6; max-width: 1100px; }
+.hwdoc h2 { margin-top: 1.4em; }
+.hwdoc table { border-collapse: collapse; margin: 0.6em 0 1.2em; font-size: 0.92em; }
+.hwdoc th, .hwdoc td { border: 1px solid var(--border-color-primary); padding: 4px 10px; text-align: left; vertical-align: top; }
+.hwdoc .note { color: var(--body-text-color-subdued); font-size: 0.9em; }
+.hwdoc svg text { fill: var(--body-text-color); font-family: var(--font); }
+.hwdoc .legend span { display: inline-block; margin-right: 18px; }
+.hwdoc .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+</style>
+<div class="hwdoc">
+<h2>Status of these numbers</h2>
+<p>The device values are <b>literature-range assumptions</b> for a first exploration, not measurements of a specific fab process.
+Real silicon often lands 10–100× worse than simulation on energy because of control, clocking, leakage and interfaces that are not modelled.</p>
+<h2>Design parameters used by this chip</h2>
+<table><tr><th>parameter</th><th>value</th><th>note</th></tr><tr><td>Largest cell capacitance</td><td>10 fF</td><td>metal-oxide-metal capacitor, ~2 fF/µm²</td></tr><tr><td>Carrier frequency</td><td>100 MHz</td><td>sets admittance ωC and read time</td></tr><tr><td>Drive amplitude</td><td>500 mV</td><td></td></tr><tr><td>Integration time per read</td><td>100 ns</td><td>≥ 3 carrier cycles</td></tr><tr><td>Tile size</td><td>128 cells</td><td>128 × 128 keeps wire phase delay small</td></tr><tr><td>Wire resistance per cell segment</td><td>2 Ω</td><td>dense crossbars: 1–5 Ω</td></tr><tr><td>Wire phase delay removed by calibration</td><td>0.9</td><td>per-column reference phase</td></tr><tr><td>Read-out amplifier power</td><td>3.54 µW</td><td>noise scales with 1/√P</td></tr><tr><td>Amplifier input noise at 10 µW</td><td>2 pA/√Hz</td><td></td></tr><tr><td>Amplifier gain mismatch</td><td>0.005</td><td></td></tr><tr><td>Offset left after synchronous detection</td><td>0.02</td><td>fraction of raw offset</td></tr><tr><td>Offset left after trimming (baseband circuits)</td><td>0.01</td><td>auto-zero</td></tr><tr><td>SiLU / sigmoid unit gain mismatch</td><td>0.01</td><td></td></tr><tr><td>Gilbert multiplier gain mismatch</td><td>0.01</td><td></td></tr><tr><td>Norm unit gain mismatch</td><td>0.005</td><td></td></tr><tr><td>Stray capacitance per crossing</td><td>50 aF</td><td>cancels in the pair except mismatch</td></tr><tr><td>Stray capacitance mismatch</td><td>0.1</td><td></td></tr><tr><td>ADC bits inside the chips</td><td>7 bits</td><td></td></tr><tr><td>Chip-to-chip link bits</td><td>10 bits</td><td></td></tr><tr><td>Rail = percentile of calibrated |signal|</td><td>100 %</td><td>100 = largest signal seen</td></tr><tr><td>Memory technology</td><td>sram</td><td>digital SRAM</td></tr><tr><td>Digital multiply-accumulate energy</td><td>200 fJ</td><td>incl. SRAM access</td></tr><tr><td>ADC energy per conversion step</td><td>5 fJ</td><td>Walden figure of merit</td></tr></table>
+<h2>Capacitor cell</h2>
+<table><tr><th>property</th><th>value</th></tr><tr><td>Unit capacitor</td><td>39.2 aF (255 per full cell)</td></tr><tr><td>Mismatch (Pelgrom)</td><td>σC/C = 0.4 % × √(1 fF / C) → 0.13 % at 10 fF</td></tr><tr><td>Carrier phase noise</td><td>0.001 rad</td></tr><tr><td>Thermal noise in the grid</td><td>none (capacitors are noiseless; noise comes from the amplifiers)</td></tr><tr><td>Cell area</td><td>5.3 µm² per cell (two cells per weight)</td></tr></table>
+<h2>Error sources and how each is modelled</h2>
+<table><tr><th>effect</th><th>model</th><th>type</th></tr><tr><td>Capacitor mismatch</td><td>random per cell, size from Pelgrom's law</td><td>fixed per chip</td></tr><tr><td>Unit-capacitor rounding</td><td>weights rounded to 255 levels per row</td><td>fixed</td></tr><tr><td>Stray crossing capacitance</td><td>0.05 fF per crossing, 10 % mismatch between the pair</td><td>fixed per chip</td></tr><tr><td>Wire phase delay</td><td>distributed RC (Elmore) along row wires; detector keeps cos φ; 90 % calibrated</td><td>fixed</td></tr><tr><td>Amplifier noise</td><td>input current noise × √bandwidth, per read</td><td>random per read</td></tr><tr><td>Amplifier gain / offset</td><td>0.5 % gain; offset 0.2 % of range × 2 % left after demodulation</td><td>fixed per chip</td></tr><tr><td>Rails</td><td>inputs and outputs clip at the calibrated full scale</td><td>deterministic</td></tr><tr><td>SiLU / sigmoid / multipliers / norms</td><td>1 % gain, small trimmed offsets, tanh compression in multipliers</td><td>fixed per chip</td></tr><tr><td>ADCs and links</td><td>uniform rounding (7-bit inside chips, 10-bit links, 8-bit output referenced to the peak)</td><td>deterministic</td></tr><tr><td>Digital memory</td><td>exact (SRAM)</td><td>—</td></tr></table>
+<h2>Not modelled</h2>
+<ul><li>Leakage power of ~8,000 mm² of silicon, clock distribution, control logic, host I/O, cooling.</li>
+<li>Defects and redundancy repair; temperature gradients across a chip; supply noise; long-term ageing.</li>
+<li>Crosstalk between neighbouring wires along their full length is only partly modelled (it was included in the exact tile solves).</li>
+<li>The digital attention engine is assumed fast enough to keep up with ~1.1 µs per token per chip.</li></ul>
+</div></main>
+<footer>KirchhoffLM by UnaGo · simulation study, not a fabricated chip · device values are literature-range assumptions ·
+<a href="https://github.com/UnaGo-AI/KirchhoffLM">source on GitHub</a></footer></body></html>
